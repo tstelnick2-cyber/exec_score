@@ -1,8 +1,12 @@
-import { Router, type IRouter } from "express";
-import healthRouter from "./health";
+import { Router } from "express";
+import healthRouter from "./health.js";
+import scoresRouter from "./scores.js";
+import statsRouter from "./stats.js";
 
-const router: IRouter = Router();
+const router = Router();
 
-router.use(healthRouter);
+router.use("/healthz", healthRouter);
+router.use("/scores", scoresRouter);
+router.use("/stats", statsRouter);
 
 export default router;

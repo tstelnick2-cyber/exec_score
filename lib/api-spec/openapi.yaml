@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Kyronix Executive Presence Score API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: scores
+    description: Executive presence score operations
+  - name: stats
+    description: Global statistics
 paths:
   /healthz:
     get:
@@ -24,6 +28,160 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /scores:
+    post:
+      operationId: submitScore
+      tags: [scores]
+      summary: Submit a LinkedIn profile URL for scoring
+      description: Starts an async scrape-and-score job. Poll GET /scores/{id} for results.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScoreInput"
+      responses:
+        "201":
+          description: Score job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreStatus"
+        "400":
+          description: Invalid LinkedIn URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /scores/{id}:
+    get:
+      operationId: getScore
+      tags: [scores]
+      summary: Get score result by ID
+      description: Poll this endpoint. Returns full results when status is "complete".
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Score result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreResult"
+        "404":
+          description: Score not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /scores/{id}/email:
+    post:
+      operationId: requestEmailVerification
+      tags: [scores]
+      summary: Request email verification to unlock full results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailInput"
+      responses:
+        "200":
+          description: Verification code sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationStatus"
+        "400":
+          description: Invalid email or score not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /scores/{id}/email/verify:
+    post:
+      operationId: verifyEmail
+      tags: [scores]
+      summary: Verify OTP code to unlock full results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpInput"
+      responses:
+        "200":
+          description: Email verified, full results unlocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationStatus"
+        "400":
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /scores/{id}/pdf:
+    get:
+      operationId: getScorePdf
+      tags: [scores]
+      summary: Download the score report as a PDF (email must be verified first)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: Email not verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stats:
+    get:
+      operationId: getScoreStats
+      tags: [stats]
+      summary: Get global scoring statistics for percentile comparisons
+      responses:
+        "200":
+          description: Global statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +192,181 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    ScoreInput:
+      type: object
+      properties:
+        linkedin_url:
+          type: string
+          description: Public LinkedIn profile URL
+      required:
+        - linkedin_url
+
+    EmailInput:
+      type: object
+      properties:
+        email:
+          type: string
+      required:
+        - email
+
+    OtpInput:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 6-digit OTP code
+      required:
+        - code
+
+    ScoreStatus:
+      type: object
+      properties:
+        id:
+          type: string
+        linkedin_url:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, complete, error]
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - linkedin_url
+        - status
+        - created_at
+
+    ScoreCategory:
+      type: object
+      properties:
+        name:
+          type: string
+        key:
+          type: string
+        score:
+          type: integer
+        max_score:
+          type: integer
+        label:
+          type: string
+          description: "Color/tier label: elite, strong, developing, weak"
+        fixes:
+          type: array
+          items:
+            type: string
+          description: Specific actionable improvements
+      required:
+        - name
+        - key
+        - score
+        - max_score
+        - label
+        - fixes
+
+    ScoreResult:
+      type: object
+      properties:
+        id:
+          type: string
+        linkedin_url:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, complete, error]
+        overall_score:
+          type: ["integer", "null"]
+        percentile:
+          type: ["integer", "null"]
+          description: Percentage of profiles this score beats
+        archetype:
+          type: ["string", "null"]
+          description: "Authority archetype label e.g. The Thought Leader"
+        archetype_description:
+          type: ["string", "null"]
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreCategory"
+        email_verified:
+          type: boolean
+        verified_email:
+          type: ["string", "null"]
+        verification_token:
+          type: ["string", "null"]
+        error_message:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - linkedin_url
+        - status
+        - email_verified
+        - categories
+        - created_at
+
+    VerificationStatus:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        verified:
+          type: boolean
+        token:
+          type: ["string", "null"]
+          description: JWT token to authenticate PDF download
+      required:
+        - success
+        - message
+        - verified
+
+    ScoreStats:
+      type: object
+      properties:
+        total_scores:
+          type: integer
+        avg_overall:
+          type: number
+        avg_headline:
+          type: number
+        avg_visual:
+          type: number
+        avg_social_proof:
+          type: number
+        avg_activity:
+          type: number
+        avg_content_depth:
+          type: number
+        top_archetypes:
+          type: array
+          items:
+            type: object
+            properties:
+              archetype:
+                type: string
+              count:
+                type: integer
+            required:
+              - archetype
+              - count
+      required:
+        - total_scores
+        - avg_overall
+        - avg_headline
+        - avg_visual
+        - avg_social_proof
+        - avg_activity
+        - avg_content_depth
+        - top_archetypes
