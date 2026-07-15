@@ -22,7 +22,8 @@ export interface ScoreOutput {
  * Measures specificity, authority markers, metric usage, and absence of weak phrases.
  */
 function scoreHeadline(data: LinkedInRawData): ScoredCategory {
-  const headline = (data.headline || "").toLowerCase();
+  const headlineRaw = data.headline ?? "";
+  const headline = headlineRaw.toLowerCase();
   let score = 8; // baseline if no headline available
   const fixes: string[] = [];
 
@@ -55,7 +56,7 @@ function scoreHeadline(data: LinkedInRawData): ScoredCategory {
     /\d+[mk%+]?/, /\$[\d,.]+/, /\d+\+?\s*(years?|yrs?)/i,
     /grew|scaled|built|launched|led|managed|drove|generated/i,
   ];
-  if (metricPatterns.some((p) => p.test(data.headline))) score += 5;
+  if (metricPatterns.some((p) => p.test(headlineRaw))) score += 5;
   else fixes.push("Add a specific metric or outcome (e.g., 'scaled to $50M ARR' or 'led 120-person org')");
 
   // Specificity / industry signals

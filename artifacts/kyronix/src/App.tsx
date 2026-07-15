@@ -279,6 +279,8 @@ function ClerkQueryClientCacheInvalidator() {
 
 // ─── Router ─────────────────────────────────────────────────────────────────
 
+const queryClient = new QueryClient();
+
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
 

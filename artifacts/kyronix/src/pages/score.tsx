@@ -50,6 +50,7 @@ export default function ScorePage() {
 
   const { data: scoreData, isLoading } = useGetScore(id, {
     query: {
+      queryKey: getGetScoreQueryKey(id),
       refetchInterval: (query) => {
         const status = query.state.data?.status;
         return status === "pending" || status === "processing" ? 2000 : false;
