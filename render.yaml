@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: kyronix-api
+    runtime: node
+    plan: starter
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build
+    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kyronix-db
+          property: connectionString
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+
+  - type: static
+    name: kyronix-web
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/kyronix run build
+    staticPublishPath: artifacts/kyronix/dist/public
+    rewriteRules:
+      - source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://kyronix-api.onrender.com
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: VITE_CLERK_PROXY_URL
+        value: https://kyronix-api.onrender.com/api/__clerk
+
+databases:
+  - name: kyronix-db
+    plan: starter
+    databaseName: kyronix
+    user: kyronix
